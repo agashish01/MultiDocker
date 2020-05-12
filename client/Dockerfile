@@ -7,8 +7,8 @@ RUN npm install
 COPY ./ ./
 
 #All the prodc assests will be placed at location /app/build after below command executes.
-CMD ["npm", "run", "build"]
-#RUN npm run build
+#CMD ["npm", "run", "build"]
+RUN npm run build
 
 #Below will change the default port that NginX listens to.
 FROM nginx
