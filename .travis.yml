@@ -1,0 +1,38 @@
+sudo: required
+services:
+  - docker
+
+#Giving Dockerfile.dev because, for running in Travis, we will need Dockerfile.dev. We are just doing NPM RUN TEST.
+#But in production, in AWS, when the image will be build,  AWS will use Dockerfile instead of Dockerfile.dev automatically. 
+#We don't need to mention the filename Dockerfile anywhere for AWS to use. It will locate itself.
+#Below will create the test version of the project because, we are using Dockerfile.dev
+#Please note that, we have only Test cases for the React-Client. But, we can add the test suites for ExpressServer, Worker, etc.
+#We cannot use the Dockerfile for development because, all the test files , we will get only through in Dockerfile.dev through command "npm run start"
+#ashishagrawalinbox/MultiDocker    :   <docker hub username>/<Build Name>
+#We are using "./client/"" because, we want to run tests for "Client" only. We don't have tests for any other image.
+#The image name must be in lowercase. Hence, such names are given. 
+#Below run for test will build only one image ; that is for react-client; Hence travisCI will build other images in after-success.
+before_install:
+  - docker build -t ashishagrawalinbox/multidocker_test -f ./client/Dockerfile.dev ./client
+language: generic 
+script:
+  - docker run -e CI=true ashishagrawalinbox/multidocker_test npm test
+
+#Below are the prod version of the images to be pushed into docker-hub
+after_success:
+  - docker build -t ashishagrawalinbox/multidocker_client ./client
+  - docker build -t ashishagrawalinbox/multidocker_nginx ./nginx
+  - docker build -t ashishagrawalinbox/multidocker_server ./server
+  - docker build -t ashishagrawalinbox/multidocker_worker ./worker
+
+  #Login to Docker CLI
+  #We have already added the env variables in TravisCI which are Docker hub credential details.
+  #"Docker login" command will work on DockerCLI, Then it will ask for username/pwd. But TravisCI doesn't support such prompts.
+  #There is a different way to achive the task of docker login through travis.
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+
+  - docker push ashishagrawalinbox/multidocker_client
+  - docker push ashishagrawalinbox/multidocker_nginx
+  - docker push ashishagrawalinbox/multidocker_server
+  - docker push ashishagrawalinbox/multidocker_worker
+

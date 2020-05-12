@@ -1,0 +1,20 @@
+upstream expressupstream {
+	server expressserverservice:5000;
+}
+
+upstream reactupstream {
+	server reactclientservice:3000;	
+}
+
+server {
+	listen 80;
+
+	location / {
+		proxy_pass http://expressupstream;
+	}
+
+	location /api {
+		rewrite /api/(.*) /$1 break;
+		proxy_pass http://reactupstream;
+	}
+}

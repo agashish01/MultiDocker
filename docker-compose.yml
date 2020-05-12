@@ -1,0 +1,83 @@
+version: '3' 
+services: 
+  postgres: 
+    image: 'postgres:latest'
+    environment:  
+      - POSTGRES_PASSWORD=postgres_password
+  redis: 
+    image: 'redis:latest'
+  nginx: 
+    restart: always
+    build: 
+      dockerfile: Dockerfile.dev
+      context: ./nginx
+    #We are going to access port 3050 on localhost.
+    ports: 
+      - '3050:80' 
+    depends_on:
+      - api
+      - client       
+  #server is the express server.  
+  api: 
+    build: 
+      dockerfile: Dockerfile.dev
+      #Below will tell that , use all the files present in "server" folder. Also, you will find there "Dockerfile.dev" as well
+      context: ./server
+    volumes: 
+      - /app/node_modules
+      - ./server:/app
+    environment:
+      - REDIS_HOST=redis
+      #BELOW is the default port
+      - REDIS_PORT=6379
+      - PGUSER=postgres
+      - PGHOST=postgres
+      - PGDATABASE=postgres
+      #This variable defines the superuser password in the PostgreSQL instance, as set by the initdb script during inital container startup
+      - PGPASSWORD=postgres_password
+      - PGPORT=5432
+    depends_on:
+      - postgres
+      - redis
+  #Client is the React
+  client: 
+    build: 
+      dockerfile: Dockerfile.dev      
+      context: ./client
+    volumes: 
+      - /app/node_modules    
+      - ./client:/app
+    stdin_open: true 
+    environment:
+      - COMPOSE_HTTP_TIMEOUT=300 
+  worker: 
+    build: 
+      dockerfile: Dockerfile.dev      
+      context: ./worker
+    volumes: 
+      - /app/node_modules
+      - ./worker:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+#env variables are used only during creating the container. They are not used/stored in the image created during build process.
+#Hence env variables can also be given with "docker run" command. There are some env variables which should not be stored in "docker-compose"; then
+#such env-variables can also be stored in your computer; From there, at runtime, the docker will pickup while creating the container.
+
+#In last project , we worked, we had the "nginx" was running in prod env. It was hosting the REACT source-code. But in this project, we are using "nginx"
+#in the dev env. 
+#Browser at some point of time is going to ask for "index.html" file. To load the HTML file, it will need the CSS/JS files as well to load the application.
+#HTML/JS requests will go to the "REACT" server. While API requests like "/values/all", "/values/current" will go to "EXPRESS SERVER".
+#Hence, we need to enforce this ROUTING. 
+#NGINX server will get all the request from browser first. Then NGINX server will decide, which (REACT/ EXPRESS) will get, what requests.
+#There are two ways that requests will come to Nginx. 
+#(1) "/" : If you look at "index.js" file present in "client" folder. You will find that the requests are getting re-directed to /api/... 
+#But point to note: "index.js" file present in "server" folder; There is no anything like ".../api/..."
+#By default, REACT server listen on port 3000.
+
+#(2) "/api/" : This is already present in URL at the beginning from browser. This is chopped off by NGINX when the request reaches NGINX. 
+#After chopping, it can direct the request to the EXPRESS server. We have mentioned in /server/index.js that, it should listen on port 5000; it means that
+#EXPRESS server listen on port 5000.
+
+          
